@@ -1,5 +1,5 @@
 ﻿using DarkUI.Forms;
-using ProjectLunarUI.Services;
+using LunarLib.Services;
 using Renci.SshNet;
 using Renci.SshNet.Common;
 using System;
@@ -20,7 +20,6 @@ namespace ProjectLunarUI
 {
     public partial class frmManageMods : DarkForm
     {
-        private int modCount = 0;
         private int selectedNumberOfMods = 0;
         frmLoading loadingForm = new frmLoading("");
         Task checkModTask;
@@ -65,76 +64,40 @@ namespace ProjectLunarUI
         private void GetInstalledMods()
         {
             ShowLoadingBox("CHECKING MODS STATUS");
-            using (SshClient ssh = new SshClient("169.254.215.100", "root", "5A7213"))
+
+            using (var service = new MegaDriveMiniService())
             {
-                while (!ssh.IsConnected)
+                var mods = service.GetInstalledMods().ToList();
+
+                if (mods.Count > 0)
                 {
-                    try
+                    if (noModsPanel.InvokeRequired)
                     {
-                        ssh.Connect();
-                    }
-                    catch
-                    {
-                        if (chkModCts.IsCancellationRequested)
-                        {
-                            chkModCts.Dispose();
-                            return;
-                        }
-                        Thread.Sleep(500);
-                    }
-                }
-
-                string result = ssh.RunCommand("mod-list").Result;
-
-                StringReader reader = new StringReader(result);
-                reader.ReadLine();
-                reader.ReadLine();
-
-                string line = string.Empty;
-                List<LunarMod> modList = new List<LunarMod>();
-                while (true)
-                {
-                    line = reader.ReadLine();
-                    if (string.IsNullOrEmpty(line))
-                    {
-                        break;
-                    }
-
-                    while (line.IndexOf("  ") >= 0)
-                    {
-                        line = line.Replace("  ", " ");
-                    }
-
-                    string[] values = line.Split(' ');
-                    modList.Add(new LunarMod() { Name = values[values.Length - 2], Version = values[values.Length - 1] });
-                    modCount++;
-
-                    if (noModsPanel.Visible == true)
-                    {
-                        if (noModsPanel.InvokeRequired)
-                        {
-                            noModsPanel.Invoke((MethodInvoker)delegate
-                            {
-                                noModsPanel.Visible = false;
-                            });
-                        }
-                        else
+                        noModsPanel.Invoke((MethodInvoker)delegate
                         {
                             noModsPanel.Visible = false;
-                        }
+                        });
                     }
+                    else
+                    {
+                        noModsPanel.Visible = false;
+                    }
+                }
+                else
+                {
+                    noModsPanel.Visible = true;
                 }
 
                 if (grdMods.InvokeRequired)
                 {
                     grdMods.Invoke((MethodInvoker)delegate
                     {
-                        grdMods.DataSource = modList;
+                        grdMods.DataSource = mods;
                     });
                 }
                 else
                 {
-                    grdMods.DataSource = modList;
+                    grdMods.DataSource = mods;
                 }
             }
             
@@ -152,8 +115,11 @@ namespace ProjectLunarUI
                     noModsPanel.Visible = true;
                 }
             }
+
             CloseLoadingBox();
+
             UpdateStatus("Ready");
+
             LockButtons(false);
         }
 
@@ -177,15 +143,17 @@ namespace ProjectLunarUI
         {
             ShowLoadingBox("INSTALLING MOD(S)");
 
-            using (var service = new MegaDriveService())
+            using (var service = new MegaDriveMiniService())
             {
+                service.UpdateStatus += UpdateStatus;
                 service.AddMods(fileNames);
                 service.RestartWithUpdateMessage();
-            }
 
-            UpdateStatus("Waiting for console");
-            ShowLoadingBox("RESTARTING CONSOLE");
-            checkModTask = Task.Run(() => GetInstalledMods(), chkModCts.Token);
+                UpdateStatus("Waiting for console");
+                ShowLoadingBox("RESTARTING CONSOLE");
+
+                checkModTask = Task.Run(() => GetInstalledMods());
+            }
             //SwingMessageBox.Show("Mods installed successfuly.", "Mod Install", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
 
@@ -231,6 +199,18 @@ namespace ProjectLunarUI
         {
             ShowLoadingBox("REMOVING MOD(S)");
 
+            using (var service = new MegaDriveMiniService())
+            {
+                var names = new List<string>();
+
+                foreach (DataGridViewRow row in grdMods.SelectedRows)
+                {
+                    names.Add(row.Cells[0].Value.ToString());
+                }
+
+                service.RemoveMods(names);
+            }
+
             foreach (DataGridViewRow gridRow in grdMods.SelectedRows)
             {
                 string modName = gridRow.Cells[0].Value.ToString();
@@ -249,40 +229,23 @@ namespace ProjectLunarUI
                 }
             }
 
-            using (SshClient ssh = new SshClient("169.254.215.100", "root", "5A7213"))
-            {
-                ssh.Connect();
-                ssh.RunCommand("killall sdl_display &> \"/dev/null\"");
-                ssh.RunCommand("sdl_display /opt/project_lunar/etc/project_lunar/IMG/PL_UpdateDone.png &");
-                UpdateStatus("Restarting console");
-                Thread.Sleep(5000);
-                var shell = ssh.CreateShellStream("Lunar", 120, 9999, 120, 9999, 65536);
-                shell.DataReceived += Shell_DataReceived;
-                shell.WriteLine($"cd /");
-                Thread.Sleep(500);
-                shell.WriteLine($"kill_ui_programs");
-                Thread.Sleep(500);
-                while (ssh.IsConnected)
-                {
-                    if (installCts.IsCancellationRequested)
-                    {
-                        installCts.Dispose();
-                        return;
-                    }
-                    Thread.Sleep(500);
-                }
-                Debug.WriteLine("Finished wait.");
-            }
             UpdateStatus("Waiting for console");
+
             ShowLoadingBox("RESTARTING CONSOLE");
+
             //SwingMessageBox.Show("Mods removed successfuly.", "Mod Uninistall", MessageBoxButtons.OK, MessageBoxIcon.Information);
-            checkModTask = Task.Run(() => GetInstalledMods(), chkModCts.Token);
+            checkModTask = Task.Run(() => GetInstalledMods());
         }
 
-        private void UpdateStatus(string text)
+        private void UpdateStatus(string message)
         {
-            toolStripStatusLabel.Text = $"Status: {text}";
+            toolStripStatusLabel.Text = $"Status: {message}";
             Application.DoEvents();
+        }
+
+        private void UpdateStatus(object sender, UpdateStatusEventArgs e)
+        {
+            UpdateStatus(e.Message);
         }
 
         private void btnMMCwebsite_Click(object sender, EventArgs e)
@@ -345,19 +308,6 @@ namespace ProjectLunarUI
                     installCts.Cancel();
                 }
             }
-        }
-    }
-
-    class LunarMod
-    {
-        public string Name
-        {
-            get; set;
-        }
-
-        public string Version
-        {
-            get; set;
         }
     }
 }

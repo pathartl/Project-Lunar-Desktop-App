@@ -9,6 +9,8 @@ Project("{54435603-DBB4-11D2-8724-00A0C9A8B90C}") = "ProjectLunarInstaller", "Pr
 EndProject
 Project("{54435603-DBB4-11D2-8724-00A0C9A8B90C}") = "ProjectLunarInstaller32", "ProjectLunarInstaller32\ProjectLunarInstaller32.vdproj", "{B0C9E307-A186-4BF7-9711-41D5D5E3167D}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LunarLib", "LunarLib\LunarLib.csproj", "{A284DB84-233C-47FA-988F-ADF480CBA20D}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -50,6 +52,18 @@ Global
 		{B0C9E307-A186-4BF7-9711-41D5D5E3167D}.Release|x64.ActiveCfg = Release
 		{B0C9E307-A186-4BF7-9711-41D5D5E3167D}.Release|x86.ActiveCfg = Release
 		{B0C9E307-A186-4BF7-9711-41D5D5E3167D}.Release|x86.Build.0 = Release
+		{A284DB84-233C-47FA-988F-ADF480CBA20D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A284DB84-233C-47FA-988F-ADF480CBA20D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A284DB84-233C-47FA-988F-ADF480CBA20D}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{A284DB84-233C-47FA-988F-ADF480CBA20D}.Debug|x64.Build.0 = Debug|Any CPU
+		{A284DB84-233C-47FA-988F-ADF480CBA20D}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{A284DB84-233C-47FA-988F-ADF480CBA20D}.Debug|x86.Build.0 = Debug|Any CPU
+		{A284DB84-233C-47FA-988F-ADF480CBA20D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A284DB84-233C-47FA-988F-ADF480CBA20D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A284DB84-233C-47FA-988F-ADF480CBA20D}.Release|x64.ActiveCfg = Release|Any CPU
+		{A284DB84-233C-47FA-988F-ADF480CBA20D}.Release|x64.Build.0 = Release|Any CPU
+		{A284DB84-233C-47FA-988F-ADF480CBA20D}.Release|x86.ActiveCfg = Release|Any CPU
+		{A284DB84-233C-47FA-988F-ADF480CBA20D}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
