@@ -1,4 +1,5 @@
 ﻿using DarkUI.Forms;
+using ProjectLunarUI.Services;
 using Renci.SshNet;
 using Renci.SshNet.Common;
 using System;
@@ -175,79 +176,13 @@ namespace ProjectLunarUI
         private void AddMods(string[] fileNames)
         {
             ShowLoadingBox("INSTALLING MOD(S)");
-            foreach (string filePath in fileNames)
-            {
-                try
-                {
-                    using (ScpClient scp = new ScpClient("169.254.215.100", "root", "5A7213"))
-                    {
-                        string md5 = GetMd5Hash(filePath);
-                        scp.Connect();
-                        string fileName = Path.GetFileName(filePath);
-                        string parsedfileName = fileName.Replace("_SEGAMD", "").Replace(".mod", "").ToUpper();
-                        UpdateStatus("Uploading " + fileName);
-                        scp.Upload(File.OpenRead(filePath), $"/tmp/{fileName}");
 
-                        using (SshClient ssh = new SshClient("169.254.215.100", "root", "5A7213"))
-                        {
-                            ssh.Connect();
-                            string md5CommandText = $"cd /tmp;[ \"$(md5sum {fileName})\" = " +
-                                                              $"\"$(echo $'{md5}  {fileName}')\" ] " +
-                                                              "&& echo \"File integrity OK\" || " +
-                                                              "echo \"File intergrity FAIL\"";
-                            string result = ssh.RunCommand(md5CommandText).Result;
-
-                            if (result.Contains("File integrity OK"))
-                            {
-                                UpdateStatus("Installing " + fileName);
-                                result = ssh.RunCommand($"cd /tmp ; mod-install {fileName}").Result;
-                                if (result.Contains("[PROJECT LUNAR](ERROR)"))
-                                {
-                                    result = result.Replace("[PROJECT LUNAR](ERROR)", "");
-                                    throw new InvalidDataException(parsedfileName + "'\n\rFailed to install!\n\rReason: " + result);
-                                }
-                            }
-                            else
-                            {
-                                throw new InvalidDataException(parsedfileName + "'\n\rFailed to install!\n\rReason: Mod has corrupted in transit. Please try again.");
-                            }
-                        }
-                    }
-                }
-                catch (InvalidDataException ex)
-                {
-                    string failureResult = ex.ToString();
-                    Console.WriteLine(failureResult);
-                    failureResult = failureResult.Replace("System.IO.InvalidDataException: ", "'");
-                    string[] splitFailureResult = failureResult.Split(new string[] { "at ProjectLunarUI" }, StringSplitOptions.None);
-                    SwingMessageBox.Show(splitFailureResult[0], "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                }
-            }
-            using (SshClient ssh = new SshClient("169.254.215.100", "root", "5A7213"))
+            using (var service = new MegaDriveService())
             {
-                ssh.Connect();
-                ssh.RunCommand("killall sdl_display &> \"/dev/null\"");
-                ssh.RunCommand("sdl_display /opt/project_lunar/etc/project_lunar/IMG/PL_UpdateDone.png &");
-                UpdateStatus("Restarting console");
-                Thread.Sleep(5000);
-                var shell = ssh.CreateShellStream("Lunar", 120, 9999, 120, 9999, 65536);
-                shell.DataReceived += Shell_DataReceived;
-                shell.WriteLine($"cd /");
-                Thread.Sleep(500);
-                shell.WriteLine($"kill_ui_programs");
-                Thread.Sleep(500);
-                shell.WriteLine($"restart");
-                while (ssh.IsConnected)
-                {
-                    if (installCts.IsCancellationRequested)
-                    {
-                        installCts.Dispose();
-                        return;
-                    }
-                    Thread.Sleep(500);
-                }
-                Debug.WriteLine("Finished wait.");
+                service.AddMods(fileNames);
+                service.RestartWithUpdateMessage();
             }
+
             UpdateStatus("Waiting for console");
             ShowLoadingBox("RESTARTING CONSOLE");
             checkModTask = Task.Run(() => GetInstalledMods(), chkModCts.Token);
@@ -262,29 +197,6 @@ namespace ProjectLunarUI
         private void Shell_DataReceived(object sender, ShellDataEventArgs e)
         {
             Debug.Write(Encoding.Default.GetString(e.Data));
-        }
-
-        static string GetMd5Hash(string filePath)
-        {
-            using (FileStream stream = File.OpenRead(filePath))
-            {
-                return GetMd5Hash(stream);
-            }
-        }
-
-        static string GetMd5Hash(Stream input)
-        {
-            MD5 md5Hash = MD5.Create();
-            byte[] data = md5Hash.ComputeHash(input);
-
-            StringBuilder sBuilder = new StringBuilder();
-
-            for (int i = 0; i < data.Length; i++)
-            {
-                sBuilder.Append(data[i].ToString("x2"));
-            }
-
-            return sBuilder.ToString();
         }
 
         private void cmdRemove_Click(object sender, EventArgs e)
